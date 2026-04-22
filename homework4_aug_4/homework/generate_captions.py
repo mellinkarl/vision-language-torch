@@ -2,6 +2,7 @@ from pathlib import Path
 
 import fire
 from matplotlib import pyplot as plt
+import json
 
 from .generate_qa import draw_detections, extract_frame_info, extract_kart_objects, extract_track_info
 
@@ -65,19 +66,29 @@ def generate_caption(info_path: str, view_index: int, img_width: int = 150, img_
                 left_right = "right"
             
             if obj["center"][1] < ego_kart["center"][1]:
-                front_back = "in front"
+                front_back = "in front of"
             else:
-                front_back = "back"
+                front_back = "behind"
             
             captions.extend([{
                 "caption": f"{kart_name} is {left_right} of the ego car.",
                 "image_file": image_file
             }, {
-                "caption": f"{kart_name} is {front_back} of the ego car.",
+                "caption": f"{kart_name} is {front_back} the ego car.",
                 "image_file": image_file
             }])
 
     return captions
+
+def generate_all():
+    captions = []
+    data_dir = Path('/content/vision-language-torch/homework4_aug_4/data/train')
+    for file_path in data_dir.glob('*_info.json'):
+        for view_index in range(10):
+            captions.extend(generate_caption(file_path, view_index))
+    
+    with open(data_dir / 'output_captions.json', 'w') as f:
+        json.dump(captions, f)
 
 
 def check_caption(info_file: str, view_index: int):
@@ -111,7 +122,7 @@ You probably need to add additional commands to Fire below.
 
 
 def main():
-    fire.Fire({"check": check_caption})
+    fire.Fire({"check": check_caption, "generate_all": generate_all})
 
 
 if __name__ == "__main__":
