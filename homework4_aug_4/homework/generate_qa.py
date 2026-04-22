@@ -347,11 +347,12 @@ def generate_qa_pairs(info_path: str, view_index: int, img_width: int = 150, img
 
 def generate_all():
     questions_answers = []
-    for file_path in Path('../data/train').glob('*_info.json'):
+    data_dir = Path('/content/vision-language-torch/homework4_aug_4/data/train')
+    for file_path in data_dir.glob('*_info.json'):
         for view_index in range(10):
             questions_answers.extend(generate_qa_pairs(file_path, view_index))
     
-    with open('data/train/qa_pairs.json', 'w') as f:
+    with open(data_dir / 'output_qa_pairs.json', 'w') as f:
         json.dump(questions_answers, f)
         
 
@@ -400,7 +401,7 @@ You probably need to add additional commands to Fire below.
 
 
 def main():
-    fire.Fire({"check": check_qa_pairs})
+    fire.Fire({"check": check_qa_pairs, "generate_all": generate_all})
 
 
 if __name__ == "__main__":
