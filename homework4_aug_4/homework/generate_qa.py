@@ -252,7 +252,7 @@ def generate_qa_pairs(info_path: str, view_index: int, img_width: int = 150, img
             break
     if ego_kart is None:
         return []
-        
+
     questions = []
     base_name = info_path.stem.replace("_info", "")
     image_file = f"{info_path.parent.name}/{base_name}_{view_index:02d}_im.jpg"    # 1. Ego car question
@@ -345,7 +345,15 @@ def generate_qa_pairs(info_path: str, view_index: int, img_width: int = 150, img
     return questions
     
 
+def generate_all():
+    questions_answers = []
+    for file_path in Path('../data/train').glob('*_info.json'):
+        for view_index in range(10):
+            questions_answers.extend(generate_qa_pairs(file_path, view_index))
     
+    with open('data/train/qa_pairs.json', 'w') as f:
+        json.dump(questions_answers, f)
+        
 
 
 def check_qa_pairs(info_file: str, view_index: int):
