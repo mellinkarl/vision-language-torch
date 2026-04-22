@@ -255,7 +255,8 @@ def generate_qa_pairs(info_path: str, view_index: int, img_width: int = 150, img
 
     questions = []
     base_name = info_path.stem.replace("_info", "")
-    image_file = f"{info_path.parent.name}/{base_name}_{view_index:02d}_im.jpg"    # 1. Ego car question
+    image_file = f"{info_path.parent.name}/{base_name}_{view_index:02d}_im.jpg"
+    # 1. Ego car question
     # What kart is the ego car?
     questions.append({
         "question": "What kart is the ego car?",

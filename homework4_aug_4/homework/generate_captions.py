@@ -3,26 +3,81 @@ from pathlib import Path
 import fire
 from matplotlib import pyplot as plt
 
-from .generate_qa import draw_detections, extract_frame_info
+from .generate_qa import draw_detections, extract_frame_info, extract_kart_objects, extract_track_info
 
 
 def generate_caption(info_path: str, view_index: int, img_width: int = 150, img_height: int = 100) -> list:
     """
     Generate caption for a specific view.
     """
+    info_path = Path(info_path)
+    kart_objects = extract_kart_objects(info_path, view_index, img_width, img_height)
+    if not kart_objects:
+        return []
+
+    ego_kart = None
+    for obj in kart_objects:
+        if obj["is_center_kart"] == True:
+            center_kart = obj["kart_name"]
+            ego_kart = obj
+            break
+    if ego_kart is None:
+        return []
+
+    captions = []
+    base_name = info_path.stem.replace("_info", "")
+    image_file = f"{info_path.parent.name}/{base_name}_{view_index:02d}_im.jpg"
+
+    kart_name = center_kart
     # 1. Ego car
     # {kart_name} is the ego car.
+    captions.append({
+        "caption": f"{kart_name} is the ego car.",
+        "image_file": image_file
+    })
 
+
+    num_karts = str(len(kart_objects))
     # 2. Counting
     # There are {num_karts} karts in the scenario.
+    captions.append({
+        "caption": f"There are {num_karts} karts in the scene.",
+        "image_file": image_file
+    })
 
+    track_name = extract_track_info(info_path)
     # 3. Track name
     # The track is {track_name}.
+    captions.append({
+        "caption": f"The track is {track_name}.",
+        "image_file": image_file
+    })
 
     # 4. Relative position
     # {kart_name} is {position} of the ego car.
+    for obj in kart_objects:
+        if not obj["is_center_kart"]:
+            kart_name = obj["kart_name"]
 
-    raise NotImplementedError("Not implemented")
+            if obj["center"][0] < ego_kart["center"][0]:
+                left_right = "left"
+            else:
+                left_right = "right"
+            
+            if obj["center"][1] < ego_kart["center"][1]:
+                front_back = "in front"
+            else:
+                front_back = "back"
+            
+            captions.extend([{
+                "caption": f"{kart_name} is {left_right} of the ego car.",
+                "image_file": image_file
+            }, {
+                "caption": f"{kart_name} is {front_back} of the ego car.",
+                "image_file": image_file
+            }])
+
+    return captions
 
 
 def check_caption(info_file: str, view_index: int):
