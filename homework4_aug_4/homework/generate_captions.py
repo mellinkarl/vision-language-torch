@@ -54,9 +54,11 @@ def generate_caption(info_path: str, view_index: int, img_width: int = 150, img_
         "image_file": image_file
     })
 
+    kart_names = []
     # 4. Relative position
     # {kart_name} is {position} of the ego car.
     for obj in kart_objects:
+        kart_names.append(obj["kart_name"])
         if not obj["is_center_kart"]:
             kart_name = obj["kart_name"]
 
@@ -77,6 +79,12 @@ def generate_caption(info_path: str, view_index: int, img_width: int = 150, img_
                 "caption": f"{kart_name} is {front_back} the ego car.",
                 "image_file": image_file
             }])
+    
+    kart_names_str = ", ".join(kart_names)
+    captions.append({
+        "caption": f"The karts in the scene are {kart_names_str}.",
+        "image_file": image_file
+    })
 
     return captions
 

@@ -9,6 +9,8 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torch.utils.tensorboard import SummaryWriter
 from transformers import AutoProcessor, Trainer, TrainingArguments
+import math
+import numpy as np
 
 from .base_vlm import BaseVLM
 from .data import CaptionDataset, MultiChoiceQADataset
@@ -102,13 +104,17 @@ class CLIP(nn.Module):
         self.vision_encoder = vision_encoder
         self.text_encoder = text_encoder
         # TODO: implement the rest components
+        self.image_proj = nn.Linear(768, proj_dim)
+        self.text_proj = nn.Linear(576, proj_dim)
+        self.t = nn.Parameter(torch.tensor(math.log(1 / temperature)))
+
         
 
     def encode_image(self, image: torch.Tensor) -> torch.Tensor:
         return self.vision_encoder(image)
 
-    def encode_text(self, text: str) -> torch.Tensor:
-        return self.text_encoder(text)
+    def encode_text(self, text: str, attention_mask: torch.Tensor) -> torch.Tensor:
+        return self.text_encoder(text, attention_mask=attention_mask)
 
     def save_pretrained(self, save_directory: str, **kwargs):
         """Customize save method, save additional parameters"""
@@ -180,7 +186,22 @@ class CLIP(nn.Module):
         Returns:
             TODO: think about the what values should be returned
         """
-        raise NotImplementedError("Not implemented")
+        encoded_image = self.encode_image(pixel_values).last_hidden_state
+        # Avg pool
+        I_f = encoded_image.mean(dim=1)
+        encoded_text = self.encode_text(input_ids, attention_mask).last_hidden_state
+        num_actual_tokens = attention_mask.sum(dim=1) - 1
+        T_f_list = []
+        for i in range(encoded_text.shape[0]):
+            T_f_list.append(encoded_text[i][num_actual_tokens[i]])
+        T_f = torch.stack(T_f_list)
+
+        I_e = nn.functional.normalize(self.image_proj(I_f), 2, dim=1)
+        T_e = nn.functional.normalize(self.text_proj(T_f), 2, dim=1)
+        
+        return I_e, T_e, self.t
+
+
 
 
 def compute_clip_loss(
@@ -199,7 +220,15 @@ def compute_clip_loss(
     Returns:
         The loss for the CLIP model.
     """
-    raise NotImplementedError("Not implemented")
+    I_e, T_e, t = outputs
+    logits = torch.matmul(I_e, T_e.T) * torch.exp(t)
+
+    labels = torch.arange(len(logits), device=logits.device)
+    loss_i = nn.functional.cross_entropy(logits, labels)
+    loss_t = nn.functional.cross_entropy(logits.T, labels)
+    loss = (loss_i + loss_t) / 2
+
+    return loss
 
 
 def get_target_modules_for_lora(model: nn.Module) -> list[str]:
@@ -219,8 +248,8 @@ def get_target_modules_for_lora(model: nn.Module) -> list[str]:
 def train(
     data_dir: Path | None = None,
     output_dir: str = "clip",
-    num_train_epochs: float = 0.05,  # for debugging purpose, increase this once the dry run works
-    per_device_train_batch_size: int = 1024,
+    num_train_epochs: float = 0.25,  # for debugging purpose, increase this once the dry run works
+    per_device_train_batch_size: int = 64,
     gradient_accumulation_steps: int = 1,
     learning_rate: float = 5e-4,
     num_workers: int = 16,
